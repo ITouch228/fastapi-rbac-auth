@@ -1,0 +1,12 @@
+__pycache__/
+venv/
+
+.env
+.env.docker
+
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+
