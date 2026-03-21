@@ -1,7 +1,10 @@
 from functools import lru_cache
+import json
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from typing import List
 
 
 class Settings(BaseSettings):
@@ -11,6 +14,18 @@ class Settings(BaseSettings):
     app_name: str = Field("RBAC Auth Service", alias="APP_NAME")
     debug: bool = Field(True, alias="DEBUG")
     api_v1_prefix: str = Field("/api/v1", alias="API_V1_PREFIX")
+
+    cors_origins_raw: str = Field("", alias="CORS_ORIGINS")
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Парсинг CORS origins из строки в список"""
+        if not self.cors_origins_raw:
+            return []
+        try:
+            return json.loads(self.cors_origins_raw)
+        except json.JSONDecodeError:
+            return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
 
     database_url: str = Field(..., alias="DATABASE_URL")
 
