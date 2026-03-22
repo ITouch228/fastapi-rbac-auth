@@ -18,6 +18,9 @@ PostgreSQL + Alembic + JWT**.
 -   JWT (access + refresh)
 -   bcrypt / passlib
 -   Docker + docker-compose
+-   Redis (для rate limiting)
+-   SlowAPI (для rate limiting)
+-   Healthchecks (для мониторинга состояния сервисов)
 
 ---
 
@@ -62,8 +65,8 @@ Read\Create\Update\Delete
 
 Два уровня прав:
 
-*_permission → действие только со своими объектами
-*_all_permission → действие со всеми объектами
+*_permission -> действие только со своими объектами
+*_all_permission -> действие со всеми объектами
 
 ## Логика проверки доступа
 
@@ -80,10 +83,50 @@ Read\Create\Update\Delete
 
 ---
 
+# Rate Limiting
+
+В системе реализована защита от чрезмерного использования API с помощью
+библиотеки `slowapi` и Redis в качестве хранилища счетчиков.
+
+## Настройки
+
+-   По умолчанию: `1000 запросов в час; 100 запросов в минуту`
+-   Для эндпоинта `/health`: `10 запросов в минуту`
+-   Для корневого эндпоинта `/`: `5 запросов в минуту`
+
+## Конфигурация
+
+Rate limiting настраивается через переменную окружения `RATE_LIMIT_DEFAULT`,
+например: `"1000 per hour;100 per minute"`
+
+При отсутствии подключения к Redis используется in-memory хранилище
+(не рекомендуется для production).
+
+---
+
+# Healthcheck
+
+Система предоставляет эндпоинт `/health` для проверки состояния сервиса:
+
+```bash
+GET /health
+Response: {"status": "ok"}
+```
+
+Этот эндпоинт также защищен rate limiting (10 запросов в минуту).
+
+Docker Compose включает healthcheck для всех сервисов:
+-   Redis: проверяет возможность выполнения команды `PING`
+-   PostgreSQL: проверяет готовность базы данных с помощью `pg_isready`
+-   Backend: проверяет доступность эндпоинта `/health`
+
+---
+
 # Коды ответов API
 
 401 -> пользователь не идентифицирован
 403 -> пользователь определён, но не имеет доступа
+429 -> превышено ограничение на количество запросов (rate limit)
 
 ---
 
@@ -219,9 +262,10 @@ shops -> read_all
 docker compose up --build
 ```
 
-Compose поднимает два сервиса:
+Compose поднимает три сервиса:
 
 db -> PostgreSQL
+redis -> Redis сервер для rate limiting
 backend -> FastAPI приложение
 
 После запуска документация будет доступна:
@@ -229,6 +273,10 @@ backend -> FastAPI приложение
 ```bash
 http://localhost:8000/docs
 ```
+
+Healthcheck эндпоинты:
+-   http://localhost:8000/health (для backend)
+-   Redis и PostgreSQL также имеют внутренние healthchecks
 
 ---
 
@@ -247,10 +295,18 @@ POSTGRES_PASSWORD
 POSTGRES_HOST
 POSTGRES_PORT
 
+REDIS_URL
+REDIS_PASSWORD
+RATE_LIMIT_DEFAULT
+
 JWT_SECRET_KEY
 JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES
 REFRESH_TOKEN_EXPIRE_DAYS
+
+REDIS_URL
+REDIS_PASSWORD
+RATE_LIMIT_DEFAULT
 
 ---
 
@@ -294,6 +350,10 @@ POST
 PATCH
 DELETE
 
+## Healthcheck
+
+GET /health
+
 ---
 
 # Тестовые пользователи
@@ -304,14 +364,6 @@ admin@example.com / AdminPass123!
 manager@example.com / ManagerPass123!
 user@example.com / UserPass123!
 guest@example.com / GuestPass123!
-
----
-
-# Пример запроса login
-
-POST /api/v1/auth/login
-
-{ "email": "admin@example.com", "password": "AdminPass123!" }
 
 ---
 
@@ -326,3 +378,5 @@ POST /api/v1/auth/login
 -   admin API для управления доступом
 -   mock бизнес‑ресурсы
 -   корректные ответы `401` и `403`
+-   rate limiting с использованием Redis
+-   healthcheck для мониторинга состояния сервисов
