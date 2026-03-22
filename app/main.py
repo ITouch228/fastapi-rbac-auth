@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import admin, auth, mock_resources, users
 from app.core.config import get_settings
+from app.core.rate_limiter import setup_rate_limiter, limiter
+
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name,
@@ -10,6 +12,9 @@ app = FastAPI(title=settings.app_name,
               version="1.0.0",
               description="Custom authentication and RBAC authorization service with JWT and mock business resources.",
               )
+
+setup_rate_limiter(app)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,10 +33,12 @@ app.include_router(mock_resources.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health", tags=["Health"])
-async def health():
+@limiter.limit("10/minute")
+async def health(request: Request):
     return {"status": "ok"}
 
 
 @app.get('/')
-async def root():
+@limiter.limit("5/minute")
+async def root(request: Request):
     return {'message': 'RBAC Auth Service is running'}

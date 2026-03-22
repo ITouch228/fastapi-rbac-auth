@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_optional
@@ -8,6 +8,7 @@ from app.schemas.common import APIMessage
 from app.services.access_service import AccessService, Action
 from app.repositories.access_rules import AccessRuleRepository
 from app.repositories.roles import RoleRepository
+from app.core.rate_limiter import limiter
 
 router = APIRouter(tags=['mock-resources'])
 

@@ -28,6 +28,11 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
 
     database_url: str = Field(..., alias="DATABASE_URL")
+    redis_url: str = Field("redis://localhost:6379", alias="REDIS_URL")
+
+    # Настройки для rate limiting
+    rate_limit_default: str = Field(
+        "1000 per hour;100 per minute", alias="RATE_LIMIT_DEFAULT")
 
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field("HS256", alias="JWT_ALGORITHM")
