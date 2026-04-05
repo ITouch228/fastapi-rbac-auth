@@ -12,6 +12,8 @@
 RBAC Auth Service.
 """
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,7 +21,15 @@ from app.api.routes import admin, auth, mock_resources, users
 from app.core.config import get_settings
 from app.core.rate_limiter import limiter, setup_rate_limiter
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
+
+if not settings.debug and len(settings.jwt_secret_key) < 32:
+    raise RuntimeError(
+        "JWT_SECRET_KEY must be at least 32 characters in production mode. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
 
 app = FastAPI(
     title=settings.app_name,

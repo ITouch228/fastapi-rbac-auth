@@ -17,7 +17,7 @@
 import json
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # =========================================================================
 
     app_name: str = Field("RBAC Auth Service", alias="APP_NAME")
-    debug: bool = Field(True, alias="DEBUG")
+    debug: bool = Field(False, alias="DEBUG")
     api_v1_prefix: str = Field("/api/v1", alias="API_V1_PREFIX")
 
     # =========================================================================
@@ -90,6 +90,17 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field("HS256", alias="JWT_ALGORITHM")
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret_length(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be at least 32 characters long. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return v
+
     access_token_expire_minutes: int = Field(
         15,
         alias="ACCESS_TOKEN_EXPIRE_MINUTES"
