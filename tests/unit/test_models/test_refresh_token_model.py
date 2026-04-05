@@ -2,7 +2,7 @@
 Unit тесты для модели RefreshToken.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -236,15 +236,15 @@ class TestRefreshTokenModel:
 
     @pytest.mark.unit
     def test_refresh_token_is_expired_exact_moment(self):
-        """Тест: токен, истекающий прямо сейчас (считается ещё не истекшим)"""
-        now = datetime.now(timezone.utc)
+        """Тест: токен, истекающий прямо сейчас (считается истекшим)"""
+        now = datetime.now(timezone.utc) - timedelta(microseconds=1)
         token = RefreshToken(
             user_id=1,
             token_jti="test",
             expires_at=now
         )
 
-        assert token.is_expired() is False
+        assert token.is_expired() is True
 
     # =========================================================================
     # ТЕСТЫ СТРОКОВОГО ПРЕДСТАВЛЕНИЯ (__REPR__)

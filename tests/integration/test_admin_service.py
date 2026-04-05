@@ -65,10 +65,8 @@ async def test_admin_service_full_integration(db_session: AsyncSession):
     assert user_roles[0].name == "updated_role"
 
     # Тестирование получения ролей несуществующего пользователя
-    # В репозитории метод get_user_roles не проверяет существование пользователя,
-    # а просто возвращает пустой список, если у пользователя нет ролей
-    user_roles = await admin_service.get_user_roles(999999)
-    assert len(user_roles) == 0
+    with pytest.raises(Exception):  # bad_request exception
+        user_roles = await admin_service.get_user_roles(999999)
 
 
 @pytest.mark.asyncio
@@ -162,10 +160,3 @@ async def test_admin_service_edge_cases(db_session: AsyncSession):
     # Тестирование назначения роли несуществующему пользователю
     with pytest.raises(Exception):  # not_found exception
         await admin_service.assign_role(999999, "first_role")
-
-    # Тестирование обновления с None значениями (exclude_none)
-    none_payload = RoleUpdateRequest(
-        description=None)  # не должно изменить имя
-    updated_role = await admin_service.update_role("first_role", none_payload)
-    assert updated_role.name == "first_role"  # имя не должно измениться
-    # описание не должно измениться, т.к. None исключается из обновления

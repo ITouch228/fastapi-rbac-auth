@@ -28,7 +28,7 @@ pytest_plugins = ["pytest_asyncio"]
 # НАСТРОЙКИ ТЕСТОВОЙ БАЗЫ ДАННЫХ
 # =========================================================================
 
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:1122@localhost:5432/rbac_fastapi_test"
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:1122@localhost:5432/rbac_auth_test"
 
 engine = create_async_engine(
     TEST_DATABASE_URL,
