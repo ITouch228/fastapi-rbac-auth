@@ -10,7 +10,8 @@ class AccessRuleRepository:
         self.session = session
 
     async def list_rules(self) -> list[AccessRoleRule]:
-        stmt = select(AccessRoleRule).options(joinedload(AccessRoleRule.role), joinedload(AccessRoleRule.element))
+        stmt = select(AccessRoleRule).options(joinedload(
+            AccessRoleRule.role), joinedload(AccessRoleRule.element))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -29,6 +30,7 @@ class AccessRuleRepository:
             .join(Role, Role.id == AccessRoleRule.role_id)
             .join(BusinessElement, BusinessElement.id == AccessRoleRule.element_id)
             .where(AccessRoleRule.role_id.in_(role_ids), BusinessElement.name == element_name)
+            .options(joinedload(AccessRoleRule.role), joinedload(AccessRoleRule.element))
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
