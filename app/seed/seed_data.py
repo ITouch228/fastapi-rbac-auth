@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 
 from app.core.security import hash_password
 from app.db.session import AsyncSessionLocal
@@ -62,51 +62,64 @@ USERS = [
 ]
 
 
-async def seed() -> None:
-    async with AsyncSessionLocal() as session:
-        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
-            await session.execute(delete(model))
-        await session.commit()
+async def seed(session=None) -> None:
+    """Заполнение базы начальными данными"""
+    if session is None:
+        async with AsyncSessionLocal() as session:
+            await _seed(session)
+    else:
+        await _seed(session)
 
-        roles = {}
-        for name, description in ROLES:
-            role = Role(name=name, description=description)
-            session.add(role)
-            roles[name] = role
 
-        elements = {}
-        for name, description in ELEMENTS:
-            element = BusinessElement(name=name, description=description)
-            session.add(element)
-            elements[name] = element
+async def _seed(session) -> None:
+    """Создание ролей, элементов, правил и пользователей"""
+    for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+        await session.execute(delete(model))
+    await session.commit()
 
-        await session.flush()
+    roles = {}
+    for name, description in ROLES:
+        role = Role(name=name, description=description)
+        session.add(role)
+        roles[name] = role
 
-        for role_name, element_rules in RULES.items():
-            for element_name, perms in element_rules.items():
-                session.add(
-                    AccessRoleRule(
-                        role_id=roles[role_name].id,
-                        element_id=elements[element_name].id,
-                        read_permission=perms.get('read_permission', False),
-                        read_all_permission=perms.get('read_all_permission', False),
-                        create_permission=perms.get('create_permission', False),
-                        update_permission=perms.get('update_permission', False),
-                        update_all_permission=perms.get('update_all_permission', False),
-                        delete_permission=perms.get('delete_permission', False),
-                        delete_all_permission=perms.get('delete_all_permission', False),
-                    )
+    elements = {}
+    for name, description in ELEMENTS:
+        element = BusinessElement(name=name, description=description)
+        session.add(element)
+        elements[name] = element
+
+    await session.flush()
+
+    for role_name, element_rules in RULES.items():
+        for element_name, perms in element_rules.items():
+            session.add(
+                AccessRoleRule(
+                    role_id=roles[role_name].id,
+                    element_id=elements[element_name].id,
+                    read_permission=perms.get('read_permission', False),
+                    read_all_permission=perms.get(
+                        'read_all_permission', False),
+                    create_permission=perms.get('create_permission', False),
+                    update_permission=perms.get('update_permission', False),
+                    update_all_permission=perms.get(
+                        'update_all_permission', False),
+                    delete_permission=perms.get('delete_permission', False),
+                    delete_all_permission=perms.get(
+                        'delete_all_permission', False),
                 )
+            )
 
+    await session.flush()
+
+    for full_name, email, password, role_name in USERS:
+        user = User(full_name=full_name, email=email,
+                    password_hash=hash_password(password), is_active=True)
+        session.add(user)
         await session.flush()
+        session.add(UserRole(user_id=user.id, role_id=roles[role_name].id))
 
-        for full_name, email, password, role_name in USERS:
-            user = User(full_name=full_name, email=email, password_hash=hash_password(password), is_active=True)
-            session.add(user)
-            await session.flush()
-            session.add(UserRole(user_id=user.id, role_id=roles[role_name].id))
-
-        await session.commit()
+    await session.commit()
 
 
 if __name__ == '__main__':
