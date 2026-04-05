@@ -1,20 +1,42 @@
+"""
+Главный модуль приложения.
+
+Содержит:
+- Создание экземпляра FastAPI приложения
+- Настройку rate limiter
+- Настройку CORS
+- Подключение API роутеров
+- Служебные эндпоинты проверки состояния приложения
+
+Используется как точка входа для запуска
+RBAC Auth Service.
+"""
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import admin, auth, mock_resources, users
 from app.core.config import get_settings
-from app.core.rate_limiter import setup_rate_limiter, limiter
-
+from app.core.rate_limiter import limiter, setup_rate_limiter
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name,
-              debug=settings.debug,
-              version="1.0.0",
-              description="Custom authentication and RBAC authorization service with JWT and mock business resources.",
-              )
+
+app = FastAPI(
+    title=settings.app_name,
+    debug=settings.debug,
+    version="1.0.0",
+    description=(
+        "Custom authentication and RBAC authorization service "
+        "with JWT and mock business resources."
+    ),
+)
+
+
+# =========================================================================
+# НАСТРОЙКА ПРИЛОЖЕНИЯ
+# =========================================================================
 
 setup_rate_limiter(app)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,19 +48,60 @@ app.add_middleware(
     max_age=600,
 )
 
+
+# =========================================================================
+# ПОДКЛЮЧЕНИЕ API РОУТЕРОВ
+# =========================================================================
+
 app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(users.router, prefix=settings.api_v1_prefix)
 app.include_router(admin.router, prefix=settings.api_v1_prefix)
 app.include_router(mock_resources.router, prefix=settings.api_v1_prefix)
 
 
+# =========================================================================
+# СЛУЖЕБНЫЕ ЭНДПОИНТЫ
+# =========================================================================
+
 @app.get("/health", tags=["Health"])
 @limiter.limit("10/minute")
 async def health(request: Request):
+    """
+    Проверка состояния приложения.
+
+    Используется для healthcheck и мониторинга
+    доступности сервиса.
+
+    **Возвращает:**
+        dict: Статус работоспособности приложения
+
+    **Пример ответа:**
+        ```json
+        {
+            "status": "ok"
+        }
+        ```
+    """
     return {"status": "ok"}
 
 
 @app.get('/')
 @limiter.limit("5/minute")
 async def root(request: Request):
+    """
+    Корневой эндпоинт приложения.
+
+    Возвращает базовое сообщение о том,
+    что сервис запущен и доступен.
+
+    **Возвращает:**
+        dict: Информационное сообщение о сервисе
+
+    **Пример ответа:**
+        ```json
+        {
+            "message": "RBAC Auth Service is running"
+        }
+        ```
+    """
     return {'message': 'RBAC Auth Service is running'}
