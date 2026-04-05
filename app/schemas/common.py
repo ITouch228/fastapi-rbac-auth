@@ -1,7 +1,13 @@
+"""
+Модели Pydantic для стандартных сообщений и базовой конфигурации ORM.
+"""
+
 from pydantic import BaseModel, ConfigDict
 
 
 class APIMessage(BaseModel):
+    """Универсальная модель для сообщений API"""
+
     message: str
 
     model_config = ConfigDict(
@@ -14,4 +20,6 @@ class APIMessage(BaseModel):
 
 
 class ORMBase(BaseModel):
+    """Базовая модель Pydantic с поддержкой from_attributes"""
+
     model_config = ConfigDict(from_attributes=True)

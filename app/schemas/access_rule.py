@@ -1,9 +1,16 @@
+"""
+Схемы Pydantic для работы с правилами доступа.
+"""
+
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import ORMBase
 
 
 class AccessRuleResponse(ORMBase):
+    """
+    Схема ответа с информацией о праве доступа.
+    """
     id: int
     role_id: int
     element_id: int
@@ -35,6 +42,9 @@ class AccessRuleResponse(ORMBase):
 
 
 class AccessRuleUpdateRequest(BaseModel):
+    """
+    Схема запроса на обновление прав доступа.
+    """
     read_permission: bool | None = None
     read_all_permission: bool | None = None
     create_permission: bool | None = None
