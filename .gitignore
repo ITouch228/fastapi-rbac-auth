@@ -2,6 +2,8 @@ __pycache__/
 venv/
 temp/
 
+.coverage
+
 .env
 .env.docker
 
