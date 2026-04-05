@@ -93,6 +93,14 @@ Read\Create\Update\Delete
 -   По умолчанию: `1000 запросов в час; 100 запросов в минуту`
 -   Для эндпоинта `/health`: `10 запросов в минуту`
 -   Для корневого эндпоинта `/`: `5 запросов в минуту`
+-   Создание роли: `10 запросов в минуту`
+-   Назначение роли: `5 запросов в минуту`
+-   Просмотр списков: `20 запросов в минуту`
+-   Обновление правил: `10 запросов в минуту`
+-   Регистрация: `3 запроса в час`
+-   Вход в систему: `20 запросов в минуту`
+-   Обновление токена: `30 запросов в час`
+-   Выход из системы: `10 запросов в минуту`
 
 ## Конфигурация
 
@@ -124,8 +132,12 @@ Docker Compose включает healthcheck для всех сервисов:
 
 # Коды ответов API
 
+400 -> некорректный запрос или невалидные данные
 401 -> пользователь не идентифицирован
 403 -> пользователь определён, но не имеет доступа
+404 -> ресурс не найден
+409 -> конфликт данных (например, пользователь уже существует)
+422 -> ошибка валидации данных
 429 -> превышено ограничение на количество запросов (rate limit)
 
 ---
@@ -236,18 +248,56 @@ shops -> read_all
 
     app/
       api/
+        deps.py
+        routes/
+          admin.py
+          auth.py
+          mock_resources.py
+          users.py
       core/
+        config.py
+        exceptions.py
+        rate_limiter.py
+        security.py
       db/
+        base.py
+        session.py
       models/
+        access_rule.py
+        business_element.py
+        refresh_token.py
+        role.py
+        user.py
+        user_role.py
       repositories/
+        access_rules.py
+        base.py
+        roles.py
+        users.py
       schemas/
+        access_rule.py
+        auth.py
+        common.py
+        role.py
+        user.py
       services/
+        access_service.py
+        admin_service.py
+        auth_service.py
+        user_service.py
       seed/
+        seed_data.py
+      main.py
 
     alembic/
+    tests/
+      unit/
+      integration/
     Dockerfile
     docker-compose.yml
     requirements.txt
+    requirements-test.txt
+    pytest.ini
     README.md
 
 ---
@@ -278,6 +328,40 @@ Healthcheck эндпоинты:
 -   http://localhost:8000/health (для backend)
 -   Redis и PostgreSQL также имеют внутренние healthchecks
 
+## Запуск локально
+
+1. Создайте виртуальное окружение:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate     # Windows
+```
+
+2. Установите зависимости:
+```bash
+pip install -r requirements.txt
+```
+
+3. Создайте файл `.env` на основе `.env.example`:
+```bash
+cp .env.example .env
+```
+
+4. Запустите PostgreSQL и Redis (например, через Docker):
+```bash
+docker compose up db redis -d
+```
+
+5. Примените миграции:
+```bash
+alembic upgrade head
+```
+
+6. Запустите приложение:
+```bash
+uvicorn app.main:app --reload
+```
+
 ---
 
 # Переменные окружения
@@ -294,6 +378,7 @@ POSTGRES_USER
 POSTGRES_PASSWORD
 POSTGRES_HOST
 POSTGRES_PORT
+DATABASE_URL
 
 REDIS_URL
 REDIS_PASSWORD
@@ -303,10 +388,6 @@ JWT_SECRET_KEY
 JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES
 REFRESH_TOKEN_EXPIRE_DAYS
-
-REDIS_URL
-REDIS_PASSWORD
-RATE_LIMIT_DEFAULT
 
 ---
 
@@ -331,8 +412,18 @@ DELETE /users/me
 
 ## Admin API
 
+### Управление ролями
+
+POST /admin/roles
+GET /admin/roles/{role_name}
+PATCH /admin/roles/{role_name}
+
+### Управление правилами доступа
+
 GET /admin/rules
 PATCH /admin/rules/{rule_id}
+
+### Управление ролями пользователей
 
 POST /admin/users/{user_id}/roles
 GET /admin/users/{user_id}/roles
@@ -346,9 +437,10 @@ GET /admin/users/{user_id}/roles
 Поддерживают операции:
 
 GET
+GET /{item_id}
 POST
-PATCH
-DELETE
+PATCH /{item_id}
+DELETE /{item_id}
 
 ## Healthcheck
 
@@ -367,6 +459,31 @@ guest@example.com / GuestPass123!
 
 ---
 
+# Тестирование
+
+Проект покрыт unit и integration тестами.
+
+## Запуск тестов
+
+```bash
+# Все тесты
+pytest
+
+# С покрытием
+pytest --cov=app --cov-report=html
+
+# Только unit тесты
+pytest tests/unit/
+
+# Только integration тесты
+pytest tests/integration/
+
+# Конкретный файл
+pytest tests/unit/test_services/test_auth_service.py
+```
+
+---
+
 # Итог
 
 Решение реализует требования тестового задания:
@@ -375,8 +492,9 @@ guest@example.com / GuestPass123!
 -   собственная система авторизации (RBAC)
 -   таблицы правил доступа в БД
 -   тестовые данные
--   admin API для управления доступом
+-   admin API для управления ролями и доступом
 -   mock бизнес‑ресурсы
 -   корректные ответы `401` и `403`
 -   rate limiting с использованием Redis
 -   healthcheck для мониторинга состояния сервисов
+-   покрытие тестами (unit + integration)
