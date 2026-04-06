@@ -12,8 +12,8 @@
 - Подключения Redis как backend для счётчиков лимитов
 
 Если Redis недоступен:
-- Используется in-memory storage
-- Лимитер продолжает работать без внешнего хранилища
+- В debug режиме: используется in-memory storage
+- В production режиме: выбрасывается ошибка (без fallback)
 """
 
 import logging
@@ -35,6 +35,8 @@ settings = get_settings()
 # СОЗДАНИЕ REDIS КЛИЕНТА И RATE LIMITER
 # =========================================================================
 
+redis_client = None
+
 try:
     # Создаём Redis клиент
     redis_client = aioredis.from_url(
@@ -50,12 +52,26 @@ try:
         default_limits=[settings.rate_limit_default]
     )
 except Exception as e:
-    logger.error(f"Failed to connect to Redis: {e}. Using in-memory storage.")
+    if not settings.debug:
+        logger.critical(
+            "Redis unavailable in production mode. "
+            "Rate limiting requires Redis for distributed sync. "
+            "Error: %s", e
+        )
+        raise RuntimeError(
+            "Redis is required for rate limiting in production mode. "
+            f"Connection failed: {e}"
+        ) from e
 
-    # Создаём limiter с in-memory storage
+    logger.warning(
+        "Failed to connect to Redis: %s. Using in-memory fallback (debug mode only).", e
+    )
+
+    # In-memory storage только для debug режима
     limiter = Limiter(
         key_func=get_remote_address,
-        default_limits=[settings.rate_limit_default]
+        default_limits=[settings.rate_limit_default],
+        storage_uri="memory://",
     )
 
 
