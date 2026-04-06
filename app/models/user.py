@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -95,7 +95,7 @@ class User(Base, TimestampMixin):
         """
         if self.is_active:
             self.is_active = False
-            self.deleted_at = datetime.now()
+            self.deleted_at = datetime.now(UTC)
 
     def to_dict(self) -> dict:
         """
