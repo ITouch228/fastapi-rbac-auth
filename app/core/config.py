@@ -68,6 +68,21 @@ class Settings(BaseSettings):
                 if origin.strip()
             ]
 
+    def validate_cors_origins(self) -> None:
+        """
+        Проверка CORS origins для production режима.
+
+        В production требует явного списка origins.
+        """
+        if self.debug:
+            return
+
+        if not self.cors_origins:
+            raise ValueError(
+                "CORS_ORIGINS must not be empty in production mode. "
+                "Set explicit origins: CORS_ORIGINS=https://example.com"
+            )
+
     # =========================================================================
     # НАСТРОЙКИ ИНФРАСТРУКТУРЫ
     # =========================================================================

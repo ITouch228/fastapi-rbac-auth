@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
+settings.validate_cors_origins()
+
 if not settings.debug and len(settings.jwt_secret_key) < 32:
     raise RuntimeError(
         "JWT_SECRET_KEY must be at least 32 characters in production mode. "
@@ -52,9 +54,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    expose_headers=["X-Request-Id"],
     max_age=600,
 )
 
