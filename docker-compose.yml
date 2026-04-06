@@ -45,6 +45,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env.docker
+    environment:
+      - SEED_ON_STARTUP=false
     depends_on:
       db:
         condition: service_healthy

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 
-from sqlalchemy import delete
+from sqlalchemy import func, select
 
 from app.core.security import hash_password
 from app.db.session import AsyncSessionLocal
 from app.models import AccessRoleRule, BusinessElement, Role, User, UserRole
+
+logger = logging.getLogger(__name__)
 
 ROLES = [
     ('admin', 'Full access to rules and resources'),
@@ -63,7 +67,7 @@ USERS = [
 
 
 async def seed(session=None) -> None:
-    """Заполнение базы начальными данными"""
+    """Заполнение базы начальными данными (только если их нет)"""
     if session is None:
         async with AsyncSessionLocal() as session:
             await _seed(session)
@@ -72,10 +76,13 @@ async def seed(session=None) -> None:
 
 
 async def _seed(session) -> None:
-    """Создание ролей, элементов, правил и пользователей"""
-    for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
-        await session.execute(delete(model))
-    await session.commit()
+    """Создание ролей, элементов, правил и пользователей (idempotent)"""
+    roles_count = await session.scalar(select(func.count(Role.id)))
+    if roles_count and roles_count > 0:
+        logger.info("Seed skipped: roles already exist (%d found)", roles_count)
+        return
+
+    logger.info("Running seed: no roles found in database")
 
     roles = {}
     for name, description in ROLES:
@@ -120,6 +127,8 @@ async def _seed(session) -> None:
         session.add(UserRole(user_id=user.id, role_id=roles[role_name].id))
 
     await session.commit()
+    logger.info("Seed completed: roles, elements, rules, and users created")
+    logger.info("Seed completed: roles, elements, rules, and users created")
 
 
 if __name__ == '__main__':
