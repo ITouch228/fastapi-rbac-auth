@@ -5,7 +5,7 @@ Integration тесты для seed данных.
 """
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from app.models import AccessRoleRule, BusinessElement, Role, User, UserRole
 from app.seed.seed_data import seed
@@ -21,6 +21,10 @@ class TestSeedData:
 
     async def test_seed_creates_roles_elements_users_and_rules(self, db_session):
         """Тест: seed создаёт роли, элементы, пользователей и правила доступа"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         roles_count = await db_session.scalar(select(func.count(Role.id)))
@@ -38,6 +42,10 @@ class TestSeedData:
 
     async def test_seed_creates_expected_roles(self, db_session):
         """Тест: seed создаёт ожидаемые роли"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(select(Role.name))
@@ -48,6 +56,10 @@ class TestSeedData:
 
     async def test_seed_creates_expected_business_elements(self, db_session):
         """Тест: seed создаёт ожидаемые бизнес-элементы"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(select(BusinessElement.name))
@@ -63,6 +75,10 @@ class TestSeedData:
 
     async def test_seed_creates_expected_users(self, db_session):
         """Тест: seed создаёт ожидаемых пользователей"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(select(User.email))
@@ -78,6 +94,10 @@ class TestSeedData:
 
     async def test_seed_assigns_correct_roles_to_users(self, db_session):
         """Тест: seed назначает пользователям корректные роли"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(
@@ -97,6 +117,10 @@ class TestSeedData:
 
     async def test_seed_stores_password_hashes(self, db_session):
         """Тест: seed сохраняет пароли пользователей в виде хешей"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(select(User))
@@ -116,6 +140,10 @@ class TestSeedData:
 
     async def test_seed_creates_full_access_rules_for_admin(self, db_session):
         """Тест: seed создаёт для admin полные права на все элементы"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(
@@ -140,6 +168,10 @@ class TestSeedData:
 
     async def test_seed_creates_no_rules_access_for_guest_on_rules_element(self, db_session):
         """Тест: seed не даёт guest доступ к элементу rules"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
         await seed(db_session)
 
         result = await db_session.execute(
@@ -168,6 +200,11 @@ class TestSeedData:
 
     async def test_seed_is_idempotent(self, db_session):
         """Тест: повторный запуск seed не создаёт дубликаты"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
+        await seed(db_session)
         await seed(db_session)
         await seed(db_session)
 
@@ -183,3 +220,23 @@ class TestSeedData:
         assert users_count == 4
         assert user_roles_count == 4
         assert rules_count == 20
+
+    # =========================================================================
+    # ТЕСТЫ ПОВЕДЕНИЯ ПРИ НАЛИЧИИ ДАННЫХ
+    # =========================================================================
+
+    async def test_seed_skips_when_data_exists(self, db_session):
+        """Тест: seed пропускает заполнение если данные уже есть"""
+        for model in (UserRole, AccessRoleRule, User, BusinessElement, Role):
+            await db_session.execute(delete(model))
+        await db_session.commit()
+
+        await seed(db_session)
+
+        roles_count_before = await db_session.scalar(select(func.count(Role.id)))
+        assert roles_count_before == 4
+
+        await seed(db_session)
+
+        roles_count_after = await db_session.scalar(select(func.count(Role.id)))
+        assert roles_count_after == roles_count_before
