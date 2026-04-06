@@ -42,7 +42,7 @@ engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
 # =========================================================================
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 async def setup_database():
     """Фикстура: создание и удаление тестовой БД"""
     async with engine.begin() as conn:
@@ -57,7 +57,7 @@ async def setup_database():
 
 
 @pytest.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session(setup_database) -> AsyncGenerator[AsyncSession, None]:
     """Фикстура: сессия БД с откатом транзакции после теста"""
     async with engine.connect() as conn:
         transaction = await conn.begin()

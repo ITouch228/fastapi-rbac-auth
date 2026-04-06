@@ -5,7 +5,7 @@ Unit тесты для AuthService.
 Все внешние зависимости (репозитории, БД) заменены на моки.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -318,14 +318,13 @@ class TestAuthService:
         - Декодирование токена
         - Проверка типа токена
         - Поиск refresh токена в БД
-        - Проверка, что токен не отозван
+        - Проверка, что токен не отозван и не истёк
         - Проверка активности пользователя
-        - Создание нового access токена
+        - Отзыв старого refresh токена (rotation)
+        - Создание нового refresh токена
         """
-        # Arrange
         refresh_token = "valid.refresh.token"
 
-        # Мокаем декодирование
         with patch('app.services.auth_service.decode_token') as mock_decode:
             mock_decode.return_value = {
                 'type': 'refresh',
@@ -335,21 +334,80 @@ class TestAuthService:
 
             auth_service.refresh_repo.get_by_jti = AsyncMock(
                 return_value=sample_refresh_token)
+            auth_service.refresh_repo.revoke_by_jti = AsyncMock()
+            auth_service.refresh_repo.create = AsyncMock()
             auth_service.user_repo.get_by_id = AsyncMock(
                 return_value=sample_user)
 
-            # Act
             result = await auth_service.refresh(refresh_token)
 
-            # Assert
             mock_decode.assert_called_once_with(refresh_token)
             auth_service.refresh_repo.get_by_jti.assert_called_once_with(
                 'test-jti-123')
+            auth_service.refresh_repo.revoke_by_jti.assert_called_once_with(
+                'test-jti-123')
+            auth_service.refresh_repo.create.assert_called_once()
             auth_service.user_repo.get_by_id.assert_called_once_with(1)
 
             assert "access_token" in result
-            assert result["refresh_token"] == refresh_token
+            assert result["refresh_token"] != refresh_token
             assert result["token_type"] == "bearer"
+
+    @pytest.mark.asyncio
+    async def test_refresh_expired_token(self, auth_service, sample_refresh_token):
+        """
+        Тест обновления с истёкшим refresh токеном.
+
+        Ожидаемый результат: HTTPException 401
+        """
+        refresh_token = "expired.refresh.token"
+
+        sample_refresh_token.is_revoked = False
+        sample_refresh_token.expires_at = datetime.now(UTC) - timedelta(hours=1)
+
+        with patch('app.services.auth_service.decode_token') as mock_decode:
+            mock_decode.return_value = {
+                'type': 'refresh',
+                'jti': 'test-jti-123',
+                'sub': '1'
+            }
+
+            auth_service.refresh_repo.get_by_jti = AsyncMock(
+                return_value=sample_refresh_token)
+
+            with pytest.raises(HTTPException) as exc_info:
+                await auth_service.refresh(refresh_token)
+
+            assert exc_info.value.status_code == 401
+            assert "expired" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_refresh_expired_token(self, auth_service, sample_refresh_token):
+        """
+        Тест обновления с истёкшим refresh токеном.
+
+        Ожидаемый результат: HTTPException 401
+        """
+        refresh_token = "expired.refresh.token"
+
+        sample_refresh_token.is_revoked = False
+        sample_refresh_token.expires_at = datetime.now(UTC) - timedelta(hours=1)
+
+        with patch('app.services.auth_service.decode_token') as mock_decode:
+            mock_decode.return_value = {
+                'type': 'refresh',
+                'jti': 'test-jti-123',
+                'sub': '1'
+            }
+
+            auth_service.refresh_repo.get_by_jti = AsyncMock(
+                return_value=sample_refresh_token)
+
+            with pytest.raises(HTTPException) as exc_info:
+                await auth_service.refresh(refresh_token)
+
+            assert exc_info.value.status_code == 401
+            assert "expired" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
     async def test_refresh_invalid_token_type(self, auth_service):

@@ -154,12 +154,14 @@ class AuthService:
 
         Проверяет тип токена, ищет refresh token в базе,
         проверяет пользователя и создаёт новый access token.
+        Реализует refresh token rotation: старый токен отзывается,
+        создаётся новый refresh token.
 
         **Параметры:**
             - **refresh_token** (str): Refresh token
 
         **Возвращает:**
-            dict[str, str]: Новый access token, исходный refresh token и тип токена
+            dict[str, str]: Новый access token, новый refresh token и тип токена
 
         **Возможные ошибки:**
             - **401**: Ожидался refresh token
@@ -187,6 +189,9 @@ class AuthService:
         if stored is None or stored.is_revoked:
             raise unauthorized('Refresh token is revoked or not found')
 
+        if stored.is_expired():
+            raise unauthorized('Refresh token has expired')
+
         if stored.user_id != user_id:
             raise unauthorized('Invalid token payload')
 
@@ -195,11 +200,22 @@ class AuthService:
         if user is None or not user.is_active:
             raise unauthorized('User is inactive')
 
+        await self.refresh_repo.revoke_by_jti(jti)
+
         access_token, _, _ = create_access_token(user.id)
+        new_refresh_token, new_jti, new_exp = create_refresh_token(user.id)
+
+        await self.refresh_repo.create(
+            user_id=user.id,
+            token_jti=new_jti,
+            expires_at=new_exp,
+            user_agent=stored.user_agent
+        )
+        await self.session.commit()
 
         return {
             'access_token': access_token,
-            'refresh_token': refresh_token,
+            'refresh_token': new_refresh_token,
             'token_type': 'bearer'
         }
 
